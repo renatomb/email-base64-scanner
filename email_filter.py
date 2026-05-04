@@ -68,7 +68,7 @@ def extract_base64_blocks(file_path):
 def decode_base64(base64_string):
     """
     Decodifica uma string base64.
-    Retorna o conteúdo decodificado como string, ou None se houver erro.
+    Retorna o conteudo decodificado como string, ou None se houver erro.
     """
     try:
         decoded_bytes = base64.b64decode(base64_string)
@@ -84,8 +84,8 @@ def decode_base64(base64_string):
 
 def search_patterns_in_content(content, patterns):
     """
-    Procura por padrões no conteúdo.
-    Retorna True se encontrar qualquer um dos padrões.
+    Procura por padroes no conteúdo.
+    Retorna True se encontrar qualquer um dos padroes.
     """
     for pattern in patterns:
         if pattern in content:
@@ -93,26 +93,59 @@ def search_patterns_in_content(content, patterns):
     return False, None
 
 
+def load_patterns_from_file(filename='filtrar-emails.txt'):
+    """
+    Carrega padroes de dominios do arquivo de texto.
+    Cada linha do arquivo deve conter um dominio.
+    """
+    patterns = []
+    
+    if not os.path.isfile(filename):
+        print(f"Arquivo de padroes '{filename}' nao encontrado.")
+        print(f"Criando arquivo de exemplo...")
+        # Cria arquivo de exemplo se não existir
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write('.malware-domain1.example.com\n')
+            f.write('.malware-domain2.example.com\n')
+        print(f"Arquivo '{filename}' criado com padroes de exemplo.")
+    
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                # Ignora linhas vazias e comentários
+                if line and not line.startswith('#'):
+                    patterns.append(line)
+        
+        print(f"Carregados {len(patterns)} padroes do arquivo '{filename}'")
+        for i, pattern in enumerate(patterns, 1):
+            print(f"  {i}. {pattern}")
+        print()
+        
+    except Exception as e:
+        print(f"Erro ao ler arquivo de padroes: {e}")
+        patterns = ['.malware-domain1.example.com', '.malware-domain2.example.com']
+    
+    return patterns
+
+
 def process_email_files(source_dir, dest_dir):
     """
-    Processa todos os arquivos de e-mail no diretório fonte.
-    Move arquivos que contêm os padrões especificados para o diretório destino.
+    Processa todos os arquivos de e-mail no diretorio fonte.
+    Move arquivos que contem os padroes especificados para o diretorio destino.
     """
-    # Array de trechos a procurar
-    search_patterns = [
-        '.malware-domain1.example.com',
-        '.malware-domain2.example.com'
-    ]
+    # Carrega padroes do arquivo
+    search_patterns = load_patterns_from_file('filtrar-emails.txt')
     
-    # Valida diretórios
+    # Valida diretorios
     if not os.path.isdir(source_dir):
         print(f"Erro: Diretorio fonte '{source_dir}' nao existe.")
         return
     
-    # Cria diretório destino se não existir
+    # Cria diretorio destino se nao existir
     os.makedirs(dest_dir, exist_ok=True)
     
-    # Lista todos os arquivos no diretório fonte
+    # Lista todos os arquivos no diretorio fonte
     files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
     
     print(f"Processando {len(files)} arquivo(s) em '{source_dir}'...\n")
@@ -123,11 +156,35 @@ def process_email_files(source_dir, dest_dir):
         file_path = os.path.join(source_dir, filename)
         print(f"=== Processando: {filename} ===")
         
+        # Ler conteudo completo do arquivo para busca em plaintext
+        found_in_plaintext = False
+        matched_plain_pattern = None
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                full_content = f.read()
+            
+            # Procurar padroes no conteudo plaintext
+            found_in_plaintext, matched_plain_pattern = search_patterns_in_content(full_content, search_patterns)
+            if found_in_plaintext:
+                print(f"✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
+        except Exception as e:
+            print(f"⚠️ Erro ao ler arquivo em plaintext: {e}")
+        
         # Extrai blocos base64
         base64_blocks = extract_base64_blocks(file_path)
         
         if not base64_blocks:
-            print(f"Nenhum bloco base64 encontrado.\n")
+            print(f"Nenhum bloco base64 encontrado.")
+            # Se não há base64 mas encontrou em plaintext, move o arquivo
+            if found_in_plaintext:
+                dest_path = os.path.join(dest_dir, filename)
+                try:
+                    shutil.move(file_path, dest_path)
+                    print(f"➡️ Arquivo movido para: {dest_path}")
+                    moved_count += 1
+                except Exception as e:
+                    print(f"⚠️ Erro ao mover arquivo: {e}")
+            print()
             continue
         
         print(f"Encontrado(s) {len(base64_blocks)} bloco(s) base64.")
@@ -148,15 +205,15 @@ def process_email_files(source_dir, dest_dir):
                 #if len(decoded) > 500:
                 #    print(f"... (truncado)")
                 
-                # Procura padrões
+                # Procura padroes
                 match_found, matched_pattern = search_patterns_in_content(decoded, search_patterns)
                 
                 if match_found:
                     print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
                     found_pattern = True
         
-        # Move arquivo se encontrou padrão
-        if found_pattern:
+        # Move arquivo se encontrou padrao (em base64 OU plaintext)
+        if found_pattern or found_in_plaintext:
             dest_path = os.path.join(dest_dir, filename)
             try:
                 shutil.move(file_path, dest_path)

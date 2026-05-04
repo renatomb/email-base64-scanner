@@ -1,0 +1,2 @@
+.malware-domain1.example.com
+.malware-domain2.example.com

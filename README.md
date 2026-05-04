@@ -8,12 +8,13 @@ Script Python para processar arquivos de e-mail em formato texto, decodificar bl
 - ✅ Detecta blocos `Content-Transfer-Encoding: base64` em e-mails
 - ✅ Extrai e decodifica múltiplos blocos base64 por arquivo
 - ✅ Exibe o conteúdo decodificado na tela
+- ✅ Procura por padrões específicos no conteúdo plaintext
 - ✅ Procura por padrões específicos no conteúdo decodificado
 - ✅ Move automaticamente arquivos que contêm os padrões para diretório de destino
 
 ## 🎯 Padrões de Busca
 
-O script procura por estes padrões no conteúdo base64 decodificado:
+O script procura por estes padrões no conteúdo plaintext e base64 decodificado:
 
 1. `.malware-domain1.example.com`
 2. `.malware-domain2.example.com`
