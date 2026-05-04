@@ -1,0 +1,28 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Teste de email com anexo
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary123"
+
+--boundary123
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+Esta é uma mensagem de teste.
+
+--boundary123
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PGJvZHk+PHA+VmlzaXRlIG5vc3NvIHNpdGU6IDxhIGhyZWY9Imh0dHA6Ly9leGFt
+cGxlLm1hbHdhcmUtZG9tYWluMi5leGFtcGxlLmNvbSI+Q2xpcXVlIGFxdWk8L2E+PC9wPjwv
+Ym9keT48L2h0bWw+
+
+--boundary123
+Content-Type: application/pdf; name="documento.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL01l
+ZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCg==
+
+--boundary123--
