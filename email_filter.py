@@ -130,24 +130,13 @@ def extract_base64_blocks_manual(lines):
 def extract_base64_blocks(file_path=None, file_content=None):
     """
     Extrai e decodifica blocos base64 de um arquivo de e-mail.
-    Usa a biblioteca email se disponível (mais eficiente e robusto), 
-    caso contrário usa parser manual.
+    Usa heurísticas para decidir entre biblioteca email (emails complexos) 
+    ou parser manual (emails simples, ~3x mais rápido).
     
     Pode receber file_path OU file_content (string com conteúdo do arquivo).
     Retorna uma lista de conteúdos decodificados (strings).
     """
-    # Se biblioteca email está disponível e temos file_content, tenta usar
-    if EMAIL_LIBRARY_AVAILABLE and file_content is not None:
-        # Cria um file object em memória
-        from io import StringIO
-        file_obj = StringIO(file_content)
-        blocks = extract_base64_blocks_with_email_lib(file_obj)
-        # Se funcionou, retorna o resultado (já decodificado)
-        if blocks is not None:
-            return blocks
-    
-    # Fallback para método manual
-    # Precisa do conteúdo como linhas
+    # Garante que temos o conteúdo
     if file_content is None:
         if file_path is None:
             return []
@@ -158,6 +147,20 @@ def extract_base64_blocks(file_path=None, file_content=None):
             print(f"⚠️ Erro ao ler arquivo: {e}")
             return []
     
+    # Usa heurística para decidir qual parser usar
+    use_email_lib = EMAIL_LIBRARY_AVAILABLE and should_use_email_lib(file_content)
+    
+    # Se biblioteca email está disponível E email é complexo
+    if use_email_lib:
+        from io import StringIO
+        file_obj = StringIO(file_content)
+        blocks = extract_base64_blocks_with_email_lib(file_obj)
+        # Se funcionou, retorna o resultado (já decodificado)
+        if blocks is not None:
+            return blocks
+        # Se falhou, continua para parser manual
+    
+    # Parser manual (padrão para emails simples ou fallback)
     lines = file_content.split('\n')
     
     # Extrai blocos base64 (ainda codificados)
@@ -292,7 +295,7 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             # Procurar padroes no conteudo plaintext
             found_in_plaintext, matched_plain_pattern = search_patterns_in_content(full_content, search_patterns)
             if found_in_plaintext and show_matched:
-                print(f"✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
+                print(f"[{filename}] ✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
             
             # Extrai e decodifica blocos base64 usando o mesmo conteúdo
             decoded_blocks = extract_base64_blocks(file_content=full_content)
@@ -338,7 +341,7 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             
             if match_found:
                 if show_matched:
-                    print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
+                    print(f"[{filename}] ✅ PADRAO ENCONTRADO: '{matched_pattern}'")
                 found_pattern = True
         
         # Move arquivo se encontrou padrao (em base64 OU plaintext)
@@ -363,6 +366,46 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
     print(f"Processamento concluido!")
     print(f"Total de arquivos movidos: {moved_count}/{len(files)}")
     print(f"{'='*60}")
+
+def should_use_email_lib(content: str) -> bool:
+    """
+    Analisa o conteúdo do email e decide se deve usar a biblioteca email.
+    Retorna True se o email parecer complexo.
+    """
+    content_lower = content.lower()
+    lines = content.splitlines()
+    
+    score = 0
+    
+    # 1. Múltiplos boundaries (forte indicador de multipart aninhado)
+    boundary_count = content_lower.count('boundary=')
+    if boundary_count >= 2:
+        score += 3
+    
+    # 2. Muitos blocos base64
+    base64_headers = sum(1 for line in lines if 'content-transfer-encoding:' in line.lower() and 'base64' in line.lower())
+    if base64_headers >= 2:
+        score += 2
+    
+    # 3. Headers folded (continuação)
+    folded_headers = sum(1 for line in lines if line.startswith((' ', '\t')) and ':' not in line[:10])
+    if folded_headers >= 3:
+        score += 1
+    
+    # 4. Anexos explícitos
+    if 'content-disposition: attachment' in content_lower:
+        score += 2
+    
+    # 5. Multipart aninhado ou mixed/alternative
+    if 'multipart/mixed' in content_lower or 'multipart/alternative' in content_lower:
+        score += 1
+    
+    # 6. Sinais de e-mail problemático (Gmail, Outlook, etc.)
+    if any(x in content_lower for x in ['name="=?utf-8?', '=?utf-8?b?']):
+        score += 1
+    
+    # Threshold: se score >= 3 → considera complexo
+    return score >= 3
 
 
 def main():
