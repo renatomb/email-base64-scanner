@@ -5,6 +5,7 @@ import sys
 import os
 import base64
 import shutil
+import argparse
 from pathlib import Path
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -257,24 +258,48 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
 
 
 def main():
-    args = [arg for arg in sys.argv[1:] if arg not in ('--show-patterns', '--show-preview')]
-    show_patterns = '--show-patterns' in sys.argv[1:]
-    show_preview = '--show-preview' in sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description='Filtra emails base64 e plaintext procurando por padrões maliciosos.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Exemplos:
+  %(prog)s /path/emails /path/filtered
+  %(prog)s --show-patterns /path/emails /path/filtered
+  %(prog)s --show-patterns --show-preview /path/emails /path/filtered
 
-    if len(args) != 2:
-        print("Uso: python3 email_filter.py [--show-patterns] [--show-preview] <diretorio_origem> <diretorio_destino>")
-        print("\nExemplo:")
-        print("  python3 email_filter.py --show-patterns --show-preview /path/emails /path/filtered")
-        sys.exit(1)
-
-    source_directory = args[0]
-    destination_directory = args[1]
-
+O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um por linha).
+        '''
+    )
+    
+    parser.add_argument(
+        'source_dir',
+        help='Diretório contendo os arquivos de email a serem processados'
+    )
+    
+    parser.add_argument(
+        'dest_dir',
+        help='Diretório destino para mover emails que contenham padrões maliciosos'
+    )
+    
+    parser.add_argument(
+        '--show-patterns',
+        action='store_true',
+        help='Exibe a lista de padrões carregados do arquivo de configuração'
+    )
+    
+    parser.add_argument(
+        '--show-preview',
+        action='store_true',
+        help='Exibe preview (primeiros 500 caracteres) do conteúdo decodificado'
+    )
+    
+    args = parser.parse_args()
+    
     process_email_files(
-        source_directory,
-        destination_directory,
-        show_patterns=show_patterns,
-        show_preview=show_preview,
+        args.source_dir,
+        args.dest_dir,
+        show_patterns=args.show_patterns,
+        show_preview=args.show_preview,
     )
 
 
