@@ -20,18 +20,18 @@ except ImportError:
     print("⚠️ Biblioteca 'email' não disponível. Usando parser manual.")
 
 
-def extract_base64_blocks_with_email_lib(file_path):
+def extract_base64_blocks_with_email_lib(file_obj):
     """
     Extrai e decodifica blocos base64 usando a biblioteca email padrão do Python.
     Mais robusto para emails complexos (multipart aninhados, charsets variados, etc).
-    Retorna uma lista de tuplas (conteúdo_decodificado, charset).
+    Recebe um file object aberto.
+    Retorna uma lista de conteúdos decodificados (strings).
     """
     decoded_blocks = []
     
     try:
-        # Parse do email diretamente do arquivo (mais eficiente)
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            msg = message_from_file(f, policy=default)
+        # Parse do email diretamente do file object
+        msg = message_from_file(file_obj, policy=default)
         
         # Itera por todas as partes do email (incluindo multipart aninhados)
         for part in msg.walk():
@@ -127,30 +127,38 @@ def extract_base64_blocks_manual(lines):
     return base64_blocks
 
 
-def extract_base64_blocks(file_path, lines=None):
+def extract_base64_blocks(file_path=None, file_content=None):
     """
     Extrai e decodifica blocos base64 de um arquivo de e-mail.
     Usa a biblioteca email se disponível (mais eficiente e robusto), 
     caso contrário usa parser manual.
     
+    Pode receber file_path OU file_content (string com conteúdo do arquivo).
     Retorna uma lista de conteúdos decodificados (strings).
     """
-    # Se biblioteca email está disponível, tenta usar
-    if EMAIL_LIBRARY_AVAILABLE:
-        blocks = extract_base64_blocks_with_email_lib(file_path)
+    # Se biblioteca email está disponível e temos file_content, tenta usar
+    if EMAIL_LIBRARY_AVAILABLE and file_content is not None:
+        # Cria um file object em memória
+        from io import StringIO
+        file_obj = StringIO(file_content)
+        blocks = extract_base64_blocks_with_email_lib(file_obj)
         # Se funcionou, retorna o resultado (já decodificado)
         if blocks is not None:
             return blocks
     
     # Fallback para método manual
-    # Se lines não foi fornecido, lê o arquivo
-    if lines is None:
+    # Precisa do conteúdo como linhas
+    if file_content is None:
+        if file_path is None:
+            return []
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                lines = f.readlines()
+                file_content = f.read()
         except Exception as e:
             print(f"⚠️ Erro ao ler arquivo: {e}")
             return []
+    
+    lines = file_content.split('\n')
     
     # Extrai blocos base64 (ainda codificados)
     base64_blocks = extract_base64_blocks_manual(lines)
@@ -277,7 +285,7 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
         decoded_blocks = []
         
         try:
-            # Ler arquivo apenas para busca plaintext
+            # Ler arquivo UMA ÚNICA VEZ
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 full_content = f.read()
             
@@ -286,9 +294,8 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             if found_in_plaintext and show_matched:
                 print(f"✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
             
-            # Extrai e decodifica blocos base64
-            # A função agora lê o arquivo internamente se necessário
-            decoded_blocks = extract_base64_blocks(file_path)
+            # Extrai e decodifica blocos base64 usando o mesmo conteúdo
+            decoded_blocks = extract_base64_blocks(file_content=full_content)
             
         except Exception as e:
             print(f"⚠️ Erro ao ler arquivo: {e}")
