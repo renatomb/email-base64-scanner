@@ -134,8 +134,8 @@ def load_patterns_from_file(filename='filtrar-emails.txt', show_patterns=False):
                 if line and not line.startswith('#'):
                     patterns.append(line)
         
-        print(f"Carregados {len(patterns)} padroes do arquivo '{filename}'")
         if show_patterns:
+            print(f"Carregados {len(patterns)} padroes do arquivo '{filename}'")
             for i, pattern in enumerate(patterns, 1):
                 print(f"  {i}. {pattern}")
             print()
@@ -147,10 +147,11 @@ def load_patterns_from_file(filename='filtrar-emails.txt', show_patterns=False):
     return patterns
 
 
-def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False):
+def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False, dry_run=False):
     """
     Processa todos os arquivos de e-mail no diretorio fonte.
     Move arquivos que contem os padroes especificados para o diretorio destino.
+    Se dry_run=True, simula o processamento sem modificar arquivos.
     """
     # Carrega padroes do arquivo
     search_patterns = load_patterns_from_file('filtrar-emails.txt', show_patterns=show_patterns)
@@ -160,8 +161,12 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
         print(f"Erro: Diretorio fonte '{source_dir}' nao existe.")
         return
     
-    # Cria diretorio destino se nao existir
-    os.makedirs(dest_dir, exist_ok=True)
+    # Cria diretorio destino se nao existir (exceto em dry-run)
+    if not dry_run:
+        os.makedirs(dest_dir, exist_ok=True)
+    else:
+        print(f"[DRY-RUN] Diretorio destino seria: '{dest_dir}'")
+        print(f"[DRY-RUN] Nenhuma alteracao sera feita no disco.\n")
     
     # Lista todos os arquivos no diretorio fonte
     files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
@@ -202,12 +207,16 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             # Se não há base64 mas encontrou em plaintext, move o arquivo
             if found_in_plaintext:
                 dest_path = os.path.join(dest_dir, filename)
-                try:
-                    shutil.move(file_path, dest_path)
-                    print(f"➡️ Arquivo movido para: {dest_path}")
+                if dry_run:
+                    print(f"[DRY-RUN] Arquivo seria movido para: {dest_path}")
                     moved_count += 1
-                except Exception as e:
-                    print(f"⚠️ Erro ao mover arquivo: {e}")
+                else:
+                    try:
+                        shutil.move(file_path, dest_path)
+                        print(f"➡️ Arquivo movido para: {dest_path}")
+                        moved_count += 1
+                    except Exception as e:
+                        print(f"⚠️ Erro ao mover arquivo: {e}")
             print()
             continue
         
@@ -240,12 +249,16 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
         # Move arquivo se encontrou padrao (em base64 OU plaintext)
         if found_pattern or found_in_plaintext:
             dest_path = os.path.join(dest_dir, filename)
-            try:
-                shutil.move(file_path, dest_path)
-                print(f"\n➡️ Arquivo movido para: {dest_path}")
+            if dry_run:
+                print(f"\n[DRY-RUN] Arquivo seria movido para: {dest_path}")
                 moved_count += 1
-            except Exception as e:
-                print(f"\n⚠️ Erro ao mover arquivo: {e}")
+            else:
+                try:
+                    shutil.move(file_path, dest_path)
+                    print(f"\n➡️ Arquivo movido para: {dest_path}")
+                    moved_count += 1
+                except Exception as e:
+                    print(f"\n⚠️ Erro ao mover arquivo: {e}")
         else:
             print(f"\nNenhum padrao encontrado. Arquivo nao movido.")
         
@@ -293,6 +306,12 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         help='Exibe preview (primeiros 500 caracteres) do conteúdo decodificado'
     )
     
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Simula o processamento sem fazer alterações no disco (não move arquivos)'
+    )
+    
     args = parser.parse_args()
     
     process_email_files(
@@ -300,6 +319,7 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         args.dest_dir,
         show_patterns=args.show_patterns,
         show_preview=args.show_preview,
+        dry_run=args.dry_run,
     )
 
 
