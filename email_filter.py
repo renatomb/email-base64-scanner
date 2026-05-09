@@ -25,37 +25,52 @@ def extract_base64_blocks(file_path):
         while i < len(lines):
             line = lines[i].strip()
             
-            # Procura por Content-Transfer-Encoding: base64
-            if 'Content-Transfer-Encoding:' in line and 'base64' in line.lower():
-                # Pula linhas até encontrar o início do conteúdo base64
-                i += 1
-                
-                # Pula linhas vazias e headers adicionais
-                while i < len(lines) and (lines[i].strip() == '' or ':' in lines[i]):
+            # Procura por Content-Transfer-Encoding: base64 (não quoted-printable)
+            if 'Content-Transfer-Encoding:' in line:
+                # Verifica se é base64 e NÃO é quoted-printable
+                if 'base64' in line.lower() and 'quoted-printable' not in line.lower():
+                    # Pula linhas até encontrar o início do conteúdo base64
                     i += 1
-                
-                # Coleta o bloco base64
-                base64_content = []
-                while i < len(lines):
-                    current_line = lines[i].rstrip('\n\r')
                     
-                    # Linha vazia indica fim do bloco
-                    if current_line.strip() == '':
-                        break
-                    
-                    base64_content.append(current_line)
-                    
-                    # Se a linha termina com =, pode ser o fim do base64
-                    if current_line.endswith('='):
-                        # Verifica se a próxima linha está vazia
-                        if i + 1 < len(lines) and lines[i + 1].strip() == '':
+                    # Pula todos os headers adicionais (linhas que começam com letra maiúscula seguida de - ou :, ou são continuações com tab/espaço)
+                    while i < len(lines):
+                        current = lines[i]
+                        stripped = current.strip()
+                        # Linha vazia = fim dos headers
+                        if stripped == '':
                             i += 1
                             break
+                        # Header ou continuação de header
+                        if (':' in current and current[0].isupper()) or current[0] in '\t ':
+                            i += 1
+                            continue
+                        # Se chegou aqui, encontrou início do conteúdo
+                        break
                     
-                    i += 1
-                
-                if base64_content:
-                    base64_blocks.append(''.join(base64_content))
+                    # Coleta o bloco base64
+                    base64_content = []
+                    while i < len(lines):
+                        current_line = lines[i].rstrip('\n\r')
+                        
+                        # Linha vazia ou início de novo boundary indica fim do bloco
+                        if current_line.strip() == '' or current_line.startswith('--'):
+                            break
+                        
+                        base64_content.append(current_line)
+                        
+                        # Se a linha termina com =, pode ser o fim do base64
+                        if current_line.endswith('='):
+                            # Verifica se a próxima linha está vazia ou é boundary
+                            if i + 1 < len(lines):
+                                next_line = lines[i + 1].strip()
+                                if next_line == '' or next_line.startswith('--'):
+                                    i += 1
+                                    break
+                        
+                        i += 1
+                    
+                    if base64_content:
+                        base64_blocks.append(''.join(base64_content))
             
             i += 1
     
