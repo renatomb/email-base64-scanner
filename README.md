@@ -21,7 +21,7 @@ O script procura por padrões no conteúdo plaintext e base64 baseado no que for
 ### Sintaxe
 
 ```bash
-python3 email_filter.py [-h] [--show-patterns] [--show-preview] [--dry-run] [--show-matched] source_dir dest_dir
+python3 email_filter.py [-h] [--show-patterns] [--show-preview] [--dry-run] [--show-matched] [--verbose] source_dir dest_dir
 ```
 
 ### Ajuda
@@ -44,6 +44,7 @@ python3 email_filter.py --help
 - **`--show-preview`**: Exibe preview (até 500 caracteres) do conteúdo decodificado de cada bloco base64
 - **`--dry-run`**: Simula o processamento sem fazer alterações no disco (não move arquivos nem cria diretórios)
 - **`--show-matched`**: Exibe os padrões encontrados durante o processamento (plaintext e base64)
+- **`--verbose`**: Exibe informações detalhadas do processamento (arquivos processados, blocos encontrados, tamanhos, mensagens de status)
 
 ### Exemplos
 
@@ -68,6 +69,12 @@ python3 email_filter.py --show-preview /var/mail/inbox /var/mail/filtered
 
 # Combinando múltiplas opções
 python3 email_filter.py --show-matched --dry-run /var/mail/inbox /var/mail/filtered
+
+# Processamento silencioso (sem verbose)
+python3 email_filter.py /var/mail/inbox /var/mail/filtered
+
+# Processamento detalhado (com verbose)
+python3 email_filter.py --verbose /var/mail/inbox /var/mail/filtered
 
 # Usando caminhos relativos
 python3 email_filter.py ./emails ./emails_filtrados

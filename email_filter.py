@@ -249,12 +249,13 @@ def load_patterns_from_file(filename='filtrar-emails.txt', show_patterns=False):
     return patterns
 
 
-def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False, dry_run=False, show_matched=False):
+def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False, dry_run=False, show_matched=False, verbose=False):
     """
     Processa todos os arquivos de e-mail no diretorio fonte.
     Move arquivos que contem os padroes especificados para o diretorio destino.
     Se dry_run=True, simula o processamento sem modificar arquivos.
     Se show_matched=True, exibe os padrões encontrados durante o processamento.
+    Se verbose=True, exibe informações detalhadas do processamento.
     """
     # Carrega padroes do arquivo
     search_patterns = load_patterns_from_file('filtrar-emails.txt', show_patterns=show_patterns)
@@ -280,7 +281,8 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
     
     for filename in files:
         file_path = os.path.join(source_dir, filename)
-        print(f"=== Processando: {filename} ===")
+        if verbose:
+            print(f"=== Processando: {filename} ===")
         
         # Busca em plaintext e extração de base64
         found_in_plaintext = False
@@ -304,30 +306,39 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             print(f"⚠️ Erro ao ler arquivo: {e}")
         
         if not decoded_blocks:
-            print(f"Nenhum bloco base64 encontrado.")
+            if verbose:
+                print(f"Nenhum bloco base64 encontrado.")
             # Se não há base64 mas encontrou em plaintext, move o arquivo
             if found_in_plaintext:
                 dest_path = os.path.join(dest_dir, filename)
                 if dry_run:
-                    print(f"[DRY-RUN] Arquivo seria movido para: {dest_path}")
+                    if verbose:
+                        print(f"[DRY-RUN] Arquivo seria movido para: {dest_path}")
                     moved_count += 1
                 else:
                     try:
                         shutil.move(file_path, dest_path)
-                        print(f"➡️ Arquivo movido para: {dest_path}")
+                        if verbose:
+                            print(f"➡️ Arquivo movido para: {dest_path}")
                         moved_count += 1
                     except Exception as e:
                         print(f"⚠️ Erro ao mover arquivo: {e}")
-            print()
+            else:
+                if verbose:
+                    print(f"Nenhum padrao encontrado. Arquivo nao movido.")
+            if verbose:
+                print()
             continue
         
-        print(f"Encontrado(s) {len(decoded_blocks)} bloco(s) base64.")
+        if verbose:
+            print(f"Encontrado(s) {len(decoded_blocks)} bloco(s) base64.")
         
         # Processa cada bloco (já decodificado)
         found_pattern = False
         for idx, decoded in enumerate(decoded_blocks, 1):
-            print(f"\n  --- Bloco {idx} ---")
-            print(f"Conteudo decodificado ({len(decoded)} caracteres):")
+            if verbose:
+                print(f"\n  --- Bloco {idx} ---")
+                print(f"Conteudo decodificado ({len(decoded)} caracteres):")
             
             # Exibe preview (primeiros 500 caracteres) somente com flag
             if show_preview:
@@ -348,19 +359,23 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
         if found_pattern or found_in_plaintext:
             dest_path = os.path.join(dest_dir, filename)
             if dry_run:
-                print(f"\n[DRY-RUN] Arquivo seria movido para: {dest_path}")
+                if verbose:
+                    print(f"\n[DRY-RUN] Arquivo seria movido para: {dest_path}")
                 moved_count += 1
             else:
                 try:
                     shutil.move(file_path, dest_path)
-                    print(f"\n➡️ Arquivo movido para: {dest_path}")
+                    if verbose:
+                        print(f"\n➡️ Arquivo movido para: {dest_path}")
                     moved_count += 1
                 except Exception as e:
                     print(f"\n⚠️ Erro ao mover arquivo: {e}")
         else:
-            print(f"\nNenhum padrao encontrado. Arquivo nao movido.")
+            if verbose:
+                print(f"\nNenhum padrao encontrado. Arquivo nao movido.")
         
-        print()
+        if verbose:
+            print()
     
     print(f"\n{'='*60}")
     print(f"Processamento concluido!")
@@ -456,6 +471,12 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         help='Exibe os padrões encontrados durante o processamento'
     )
     
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Exibe informações detalhadas do processamento (arquivos, blocos, tamanhos)'
+    )
+    
     args = parser.parse_args()
     
     process_email_files(
@@ -465,6 +486,7 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         show_preview=args.show_preview,
         dry_run=args.dry_run,
         show_matched=args.show_matched,
+        verbose=args.verbose,
     )
 
 
