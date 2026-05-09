@@ -147,11 +147,12 @@ def load_patterns_from_file(filename='filtrar-emails.txt', show_patterns=False):
     return patterns
 
 
-def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False, dry_run=False):
+def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False, dry_run=False, show_matched=False):
     """
     Processa todos os arquivos de e-mail no diretorio fonte.
     Move arquivos que contem os padroes especificados para o diretorio destino.
     Se dry_run=True, simula o processamento sem modificar arquivos.
+    Se show_matched=True, exibe os padrões encontrados durante o processamento.
     """
     # Carrega padroes do arquivo
     search_patterns = load_patterns_from_file('filtrar-emails.txt', show_patterns=show_patterns)
@@ -193,7 +194,7 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             
             # Procurar padroes no conteudo plaintext
             found_in_plaintext, matched_plain_pattern = search_patterns_in_content(full_content, search_patterns)
-            if found_in_plaintext:
+            if found_in_plaintext and show_matched:
                 print(f"✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
             
             # Extrai blocos base64 das mesmas linhas
@@ -243,7 +244,8 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
                 match_found, matched_pattern = search_patterns_in_content(decoded, search_patterns)
                 
                 if match_found:
-                    print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
+                    if show_matched:
+                        print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
                     found_pattern = True
         
         # Move arquivo se encontrou padrao (em base64 OU plaintext)
@@ -312,6 +314,12 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         help='Simula o processamento sem fazer alterações no disco (não move arquivos)'
     )
     
+    parser.add_argument(
+        '--show-matched',
+        action='store_true',
+        help='Exibe os padrões encontrados durante o processamento'
+    )
+    
     args = parser.parse_args()
     
     process_email_files(
@@ -320,6 +328,7 @@ O arquivo 'filtrar-emails.txt' deve conter os padrões a serem procurados (um po
         show_patterns=args.show_patterns,
         show_preview=args.show_preview,
         dry_run=args.dry_run,
+        show_matched=args.show_matched,
     )
 
 

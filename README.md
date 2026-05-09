@@ -21,21 +21,44 @@ O script procura por padrões no conteúdo plaintext e base64 baseado no que for
 ### Sintaxe
 
 ```bash
-python3 email_filter.py [--show-patterns] [--show-preview] <diretorio_origem> <diretorio_destino>
+python3 email_filter.py [-h] [--show-patterns] [--show-preview] [--dry-run] [--show-matched] source_dir dest_dir
+```
+
+### Ajuda
+
+Para ver todas as opções disponíveis:
+
+```bash
+python3 email_filter.py --help
 ```
 
 ### Parâmetros
 
+**Posicionais:**
+- **`source_dir`**: Diretório contendo os arquivos de e-mail a serem processados
+- **`dest_dir`**: Diretório para onde os arquivos filtrados serão movidos
+
+**Opcionais:**
+- **`-h, --help`**: Exibe mensagem de ajuda e sai
 - **`--show-patterns`**: Exibe na tela todos os padrões carregados do arquivo `filtrar-emails.txt`
 - **`--show-preview`**: Exibe preview (até 500 caracteres) do conteúdo decodificado de cada bloco base64
-- **`<diretorio_origem>`**: Diretório contendo os arquivos de e-mail a serem processados
-- **`<diretorio_destino>`**: Diretório para onde os arquivos filtrados serão movidos
+- **`--dry-run`**: Simula o processamento sem fazer alterações no disco (não move arquivos nem cria diretórios)
+- **`--show-matched`**: Exibe os padrões encontrados durante o processamento (plaintext e base64)
 
 ### Exemplos
 
 ```bash
+# Ver ajuda
+python3 email_filter.py --help
+
 # Exemplo básico
 python3 email_filter.py /var/mail/inbox /var/mail/filtered
+
+# Simular processamento sem mover arquivos (dry-run)
+python3 email_filter.py --dry-run /var/mail/inbox /var/mail/filtered
+
+# Exibir padrões encontrados durante processamento
+python3 email_filter.py --show-matched /var/mail/inbox /var/mail/filtered
 
 # Exibir apenas lista de padrões carregados
 python3 email_filter.py --show-patterns /var/mail/inbox /var/mail/filtered
@@ -43,8 +66,8 @@ python3 email_filter.py --show-patterns /var/mail/inbox /var/mail/filtered
 # Exibir preview do conteúdo decodificado
 python3 email_filter.py --show-preview /var/mail/inbox /var/mail/filtered
 
-# Exibir padrões e preview
-python3 email_filter.py --show-patterns --show-preview /var/mail/inbox /var/mail/filtered
+# Combinando múltiplas opções
+python3 email_filter.py --show-matched --dry-run /var/mail/inbox /var/mail/filtered
 
 # Usando caminhos relativos
 python3 email_filter.py ./emails ./emails_filtrados
@@ -92,7 +115,7 @@ Total de arquivos movidos: 1/5
 ## 🔧 Requisitos
 
 - Python 3.x
-- Módulos padrão: `sys`, `os`, `base64`, `shutil`, `pathlib`
+- Módulos padrão: `sys`, `os`, `base64`, `shutil`, `pathlib`, `argparse`
 
 ## ⚠️ Observações
 
