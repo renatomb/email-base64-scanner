@@ -106,7 +106,15 @@ def extract_base64_blocks_manual(lines):
                     if current_line.strip() == '' or current_line.startswith('--'):
                         break
                     
-                    base64_content.append(current_line)
+                    # Valida se a linha parece base64 válido (só caracteres base64 válidos)
+                    stripped_line = current_line.strip()
+                    if stripped_line:
+                        # Base64 válido: A-Z, a-z, 0-9, +, /, =
+                        if all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=' for c in stripped_line):
+                            base64_content.append(current_line)
+                        else:
+                            # Linha contém caracteres inválidos para base64, pode ser fim do bloco
+                            break
                     
                     # Se a linha termina com =, pode ser o fim do base64
                     if current_line.endswith('='):
@@ -184,6 +192,13 @@ def decode_base64(base64_string):
     try:
         # Remove espaços e quebras de linha
         base64_string = base64_string.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+        
+        # Remove caracteres não-ASCII (que não são válidos em base64)
+        base64_string = ''.join(c for c in base64_string if ord(c) < 128)
+        
+        # Se ficou vazio ou muito pequeno, não é base64 válido
+        if len(base64_string) < 4:
+            return None
         
         # Corrige padding se necessário
         missing_padding = len(base64_string) % 4
