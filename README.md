@@ -116,6 +116,7 @@ Total de arquivos movidos: 1/5
 
 - Python 3.x
 - Módulos padrão: `sys`, `os`, `base64`, `shutil`, `pathlib`, `argparse`
+- Módulo `email` (recomendado, geralmente já incluído no Python): Usado para parsing robusto de emails complexos (multipart aninhados, etc). Se não disponível, usa parser manual como fallback.
 
 ## ⚠️ Observações
 
@@ -124,6 +125,7 @@ Total de arquivos movidos: 1/5
 - Arquivos sem padrões encontrados permanecem no diretório original
 - O script trata erros de encoding (UTF-8 e Latin-1)
 - A lista de padrões é lida do arquivo `filtrar-emails.txt` (linhas vazias e comentários iniciados com `#` são ignorados)
+- **Parsing robusto**: Usa a biblioteca `email` do Python quando disponível para lidar com emails complexos (multipart aninhados, Content-Location, charsets variados). Se não disponível, usa parser manual como fallback.
 
 ## 📂 Estrutura de E-mail Suportada
 

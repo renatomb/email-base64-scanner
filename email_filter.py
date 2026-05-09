@@ -10,10 +10,62 @@ from pathlib import Path
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
+# Tenta importar a biblioteca email do Python
+try:
+    from email import message_from_string
+    from email.policy import default
+    EMAIL_LIBRARY_AVAILABLE = True
+except ImportError:
+    EMAIL_LIBRARY_AVAILABLE = False
+    print("⚠️ Biblioteca 'email' não disponível. Usando parser manual.")
 
-def extract_base64_blocks(lines):
+
+def extract_base64_blocks_with_email_lib(content):
     """
-    Extrai todos os blocos base64 das linhas de um arquivo de e-mail.
+    Extrai blocos base64 usando a biblioteca email padrão do Python.
+    Mais robusto para emails complexos (multipart aninhados, etc).
+    Retorna uma lista de strings base64.
+    """
+    base64_blocks = []
+    
+    try:
+        # Parse do email
+        msg = message_from_string(content, policy=default)
+        
+        # Itera por todas as partes do email (incluindo multipart aninhados)
+        if msg.is_multipart():
+            for part in msg.walk():
+                # Verifica se é base64
+                transfer_encoding = part.get('Content-Transfer-Encoding', '').lower()
+                if 'base64' in transfer_encoding:
+                    # Pega o payload raw (ainda em base64, sem decodificar)
+                    payload = part.get_payload(decode=False)
+                    if payload and isinstance(payload, str):
+                        # Remove whitespace e adiciona à lista
+                        clean_payload = ''.join(payload.split())
+                        if clean_payload:
+                            base64_blocks.append(clean_payload)
+        else:
+            # Email simples (não multipart)
+            transfer_encoding = msg.get('Content-Transfer-Encoding', '').lower()
+            if 'base64' in transfer_encoding:
+                payload = msg.get_payload(decode=False)
+                if payload and isinstance(payload, str):
+                    clean_payload = ''.join(payload.split())
+                    if clean_payload:
+                        base64_blocks.append(clean_payload)
+    
+    except Exception as e:
+        print(f"⚠️ Erro ao usar biblioteca email: {e}")
+        print("   Tentando com parser manual...")
+        return None
+    
+    return base64_blocks
+
+
+def extract_base64_blocks_manual(lines):
+    """
+    Extrai todos os blocos base64 das linhas de um arquivo de e-mail (método manual).
     Retorna uma lista de strings base64.
     """
     base64_blocks = []
@@ -72,6 +124,24 @@ def extract_base64_blocks(lines):
         i += 1
     
     return base64_blocks
+
+
+def extract_base64_blocks(lines):
+    """
+    Extrai todos os blocos base64 de um arquivo de e-mail.
+    Usa a biblioteca email se disponível, caso contrário usa parser manual.
+    Retorna uma lista de strings base64.
+    """
+    # Se biblioteca email está disponível, tenta usar
+    if EMAIL_LIBRARY_AVAILABLE:
+        content = ''.join(lines)
+        blocks = extract_base64_blocks_with_email_lib(content)
+        # Se funcionou, retorna o resultado
+        if blocks is not None:
+            return blocks
+    
+    # Fallback para método manual
+    return extract_base64_blocks_manual(lines)
 
 
 def decode_base64(base64_string):
