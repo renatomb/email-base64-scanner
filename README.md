@@ -7,28 +7,27 @@ Script Python para processar arquivos de e-mail em formato texto, decodificar bl
 - ✅ Processa todos os arquivos em um diretório
 - ✅ Detecta blocos `Content-Transfer-Encoding: base64` em e-mails
 - ✅ Extrai e decodifica múltiplos blocos base64 por arquivo
-- ✅ Exibe o conteúdo decodificado na tela
+- ✅ Exibe o conteúdo decodificado na tela (opcional)
 - ✅ Procura por padrões específicos no conteúdo plaintext
 - ✅ Procura por padrões específicos no conteúdo decodificado
 - ✅ Move automaticamente arquivos que contêm os padrões para diretório de destino
 
 ## 🎯 Padrões de Busca
 
-O script procura por estes padrões no conteúdo plaintext e base64 decodificado:
-
-1. `.malware-domain1.example.com`
-2. `.malware-domain2.example.com`
+O script procura por padrões no conteúdo plaintext e base64 baseado no que for especificado no arquivo `filtrar-emails.txt`
 
 ## 🚀 Como Usar
 
 ### Sintaxe
 
 ```bash
-python3 email_filter.py <diretorio_origem> <diretorio_destino>
+python3 email_filter.py [--show-patterns] [--show-preview] <diretorio_origem> <diretorio_destino>
 ```
 
 ### Parâmetros
 
+- **`--show-patterns`**: Exibe na tela todos os padrões carregados do arquivo `filtrar-emails.txt`
+- **`--show-preview`**: Exibe preview (até 500 caracteres) do conteúdo decodificado de cada bloco base64
 - **`<diretorio_origem>`**: Diretório contendo os arquivos de e-mail a serem processados
 - **`<diretorio_destino>`**: Diretório para onde os arquivos filtrados serão movidos
 
@@ -37,6 +36,15 @@ python3 email_filter.py <diretorio_origem> <diretorio_destino>
 ```bash
 # Exemplo básico
 python3 email_filter.py /var/mail/inbox /var/mail/filtered
+
+# Exibir apenas lista de padrões carregados
+python3 email_filter.py --show-patterns /var/mail/inbox /var/mail/filtered
+
+# Exibir preview do conteúdo decodificado
+python3 email_filter.py --show-preview /var/mail/inbox /var/mail/filtered
+
+# Exibir padrões e preview
+python3 email_filter.py --show-patterns --show-preview /var/mail/inbox /var/mail/filtered
 
 # Usando caminhos relativos
 python3 email_filter.py ./emails ./emails_filtrados
@@ -51,7 +59,7 @@ python3 email_filter.py /home/usuario/emails /home/usuario/suspeitos
 2. **Detecção**: Identifica blocos com `Content-Transfer-Encoding: base64`
 3. **Extração**: Captura o conteúdo base64 até encontrar `=` seguido de linha vazia
 4. **Decodificação**: Converte o base64 para texto legível
-5. **Exibição**: Mostra na tela o conteúdo decodificado (preview de 500 caracteres)
+5. **Exibição (opcional)**: Se `--show-preview` for usado, mostra na tela preview de até 500 caracteres do conteúdo decodificado
 6. **Busca**: Procura pelos padrões definidos
 7. **Ação**: Se encontrar qualquer padrão, move o arquivo para o diretório destino
 
@@ -89,9 +97,10 @@ Total de arquivos movidos: 1/5
 ## ⚠️ Observações
 
 - O diretório de destino é criado automaticamente se não existir
-- Arquivos sem blocos base64 são ignorados
+- Arquivos sem blocos base64 não são decodificados, mas ainda podem ser movidos se houver padrão no plaintext
 - Arquivos sem padrões encontrados permanecem no diretório original
 - O script trata erros de encoding (UTF-8 e Latin-1)
+- A lista de padrões é lida do arquivo `filtrar-emails.txt` (linhas vazias e comentários iniciados com `#` são ignorados)
 
 ## 📂 Estrutura de E-mail Suportada
 
@@ -131,12 +140,16 @@ python3 email_filter.py test_emails test_filtered
 
 ## 📋 Customização
 
-Para adicionar novos padrões de busca, edite a lista `search_patterns` na função `process_email_files()`:
+Para adicionar novos padrões de busca, edite o arquivo `filtrar-emails.txt` (um padrão por linha):
 
-```python
-search_patterns = [
-    '.malware-domain1.example.com',
-    '.malware-domain2.example.com',
-    '.seu-novo-padrao.com'  # Adicione aqui
-]
+```txt
+# Comentários começam com #
+.malware-domain1.example.com
+.malware-domain2.example.com
+.seu-novo-padrao.com
 ```
+
+## Autor
+
+Renato Monteiro Batista
+[https://github.com/renatomb/email-base64-scanner](https://github.com/renatomb/email-base64-scanner)

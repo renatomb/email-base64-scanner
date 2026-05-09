@@ -71,7 +71,15 @@ def decode_base64(base64_string):
     Retorna o conteudo decodificado como string, ou None se houver erro.
     """
     try:
-        decoded_bytes = base64.b64decode(base64_string)
+        # Remove espaços e quebras de linha
+        base64_string = base64_string.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+        
+        # Corrige padding se necessário
+        missing_padding = len(base64_string) % 4
+        if missing_padding:
+            base64_string += '=' * (4 - missing_padding)
+        
+        decoded_bytes = base64.b64decode(base64_string, validate=False)
         # Tenta decodificar como UTF-8, se falhar usa latin-1
         try:
             return decoded_bytes.decode('utf-8')
@@ -93,7 +101,7 @@ def search_patterns_in_content(content, patterns):
     return False, None
 
 
-def load_patterns_from_file(filename='filtrar-emails.txt'):
+def load_patterns_from_file(filename='filtrar-emails.txt', show_patterns=False):
     """
     Carrega padroes de dominios do arquivo de texto.
     Cada linha do arquivo deve conter um dominio.
@@ -118,9 +126,10 @@ def load_patterns_from_file(filename='filtrar-emails.txt'):
                     patterns.append(line)
         
         print(f"Carregados {len(patterns)} padroes do arquivo '{filename}'")
-        for i, pattern in enumerate(patterns, 1):
-            print(f"  {i}. {pattern}")
-        print()
+        if show_patterns:
+            for i, pattern in enumerate(patterns, 1):
+                print(f"  {i}. {pattern}")
+            print()
         
     except Exception as e:
         print(f"Erro ao ler arquivo de padroes: {e}")
@@ -129,13 +138,13 @@ def load_patterns_from_file(filename='filtrar-emails.txt'):
     return patterns
 
 
-def process_email_files(source_dir, dest_dir):
+def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=False):
     """
     Processa todos os arquivos de e-mail no diretorio fonte.
     Move arquivos que contem os padroes especificados para o diretorio destino.
     """
     # Carrega padroes do arquivo
-    search_patterns = load_patterns_from_file('filtrar-emails.txt')
+    search_patterns = load_patterns_from_file('filtrar-emails.txt', show_patterns=show_patterns)
     
     # Valida diretorios
     if not os.path.isdir(source_dir):
@@ -199,11 +208,12 @@ def process_email_files(source_dir, dest_dir):
             
             if decoded:
                 print(f"Conteudo decodificado ({len(decoded)} caracteres):")
-                # Exibe preview (primeiros 500 caracteres)
-                #preview = decoded[:500]
-                #print(f"{preview}")
-                #if len(decoded) > 500:
-                #    print(f"... (truncado)")
+                # Exibe preview (primeiros 500 caracteres) somente com flag
+                if show_preview:
+                    preview = decoded[:500]
+                    print(f"{preview}")
+                    if len(decoded) > 500:
+                        print(f"... (truncado)")
                 
                 # Procura padroes
                 match_found, matched_pattern = search_patterns_in_content(decoded, search_patterns)
@@ -233,16 +243,25 @@ def process_email_files(source_dir, dest_dir):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Uso: python3 email_filter.py <diretorio_origem> <diretorio_destino>")
+    args = [arg for arg in sys.argv[1:] if arg not in ('--show-patterns', '--show-preview')]
+    show_patterns = '--show-patterns' in sys.argv[1:]
+    show_preview = '--show-preview' in sys.argv[1:]
+
+    if len(args) != 2:
+        print("Uso: python3 email_filter.py [--show-patterns] [--show-preview] <diretorio_origem> <diretorio_destino>")
         print("\nExemplo:")
-        print("  python3 email_filter.py /path/emails /path/filtered")
+        print("  python3 email_filter.py --show-patterns --show-preview /path/emails /path/filtered")
         sys.exit(1)
-    
-    source_directory = sys.argv[1]
-    destination_directory = sys.argv[2]
-    
-    process_email_files(source_directory, destination_directory)
+
+    source_directory = args[0]
+    destination_directory = args[1]
+
+    process_email_files(
+        source_directory,
+        destination_directory,
+        show_patterns=show_patterns,
+        show_preview=show_preview,
+    )
 
 
 if __name__ == "__main__":
