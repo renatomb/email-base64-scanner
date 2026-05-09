@@ -12,7 +12,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Tenta importar a biblioteca email do Python
 try:
-    from email import message_from_string
+    from email import message_from_file
     from email.policy import default
     EMAIL_LIBRARY_AVAILABLE = True
 except ImportError:
@@ -20,53 +20,54 @@ except ImportError:
     print("⚠️ Biblioteca 'email' não disponível. Usando parser manual.")
 
 
-def extract_base64_blocks_with_email_lib(content):
+def extract_base64_blocks_with_email_lib(file_path):
     """
-    Extrai blocos base64 usando a biblioteca email padrão do Python.
-    Mais robusto para emails complexos (multipart aninhados, etc).
-    Retorna uma lista de strings base64.
+    Extrai e decodifica blocos base64 usando a biblioteca email padrão do Python.
+    Mais robusto para emails complexos (multipart aninhados, charsets variados, etc).
+    Retorna uma lista de tuplas (conteúdo_decodificado, charset).
     """
-    base64_blocks = []
+    decoded_blocks = []
     
     try:
-        # Parse do email
-        msg = message_from_string(content, policy=default)
+        # Parse do email diretamente do arquivo (mais eficiente)
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            msg = message_from_file(f, policy=default)
         
         # Itera por todas as partes do email (incluindo multipart aninhados)
-        if msg.is_multipart():
-            for part in msg.walk():
-                # Verifica se é base64
-                transfer_encoding = part.get('Content-Transfer-Encoding', '').lower()
-                if 'base64' in transfer_encoding:
-                    # Pega o payload raw (ainda em base64, sem decodificar)
-                    payload = part.get_payload(decode=False)
-                    if payload and isinstance(payload, str):
-                        # Remove whitespace e adiciona à lista
-                        clean_payload = ''.join(payload.split())
-                        if clean_payload:
-                            base64_blocks.append(clean_payload)
-        else:
-            # Email simples (não multipart)
-            transfer_encoding = msg.get('Content-Transfer-Encoding', '').lower()
+        for part in msg.walk():
+            # Pula containers multipart (sem conteúdo real)
+            if part.is_multipart():
+                continue
+            
+            # Verifica se é base64
+            transfer_encoding = part.get('Content-Transfer-Encoding', '').lower()
             if 'base64' in transfer_encoding:
-                payload = msg.get_payload(decode=False)
-                if payload and isinstance(payload, str):
-                    clean_payload = ''.join(payload.split())
-                    if clean_payload:
-                        base64_blocks.append(clean_payload)
+                # Pega o payload já decodificado (bytes)
+                payload = part.get_payload(decode=True)
+                if payload:
+                    # Tenta decodificar como string com charset apropriado
+                    charset = part.get_content_charset() or 'utf-8'
+                    try:
+                        decoded = payload.decode(charset, errors='ignore')
+                    except (UnicodeDecodeError, LookupError):
+                        # Fallback para latin-1 se charset falhar
+                        decoded = payload.decode('latin-1', errors='ignore')
+                    
+                    if decoded:
+                        decoded_blocks.append(decoded)
     
     except Exception as e:
         print(f"⚠️ Erro ao usar biblioteca email: {e}")
         print("   Tentando com parser manual...")
         return None
     
-    return base64_blocks
+    return decoded_blocks
 
 
 def extract_base64_blocks_manual(lines):
     """
     Extrai todos os blocos base64 das linhas de um arquivo de e-mail (método manual).
-    Retorna uma lista de strings base64.
+    Retorna uma lista de strings base64 (ainda codificadas).
     """
     base64_blocks = []
     
@@ -126,22 +127,42 @@ def extract_base64_blocks_manual(lines):
     return base64_blocks
 
 
-def extract_base64_blocks(lines):
+def extract_base64_blocks(file_path, lines=None):
     """
-    Extrai todos os blocos base64 de um arquivo de e-mail.
-    Usa a biblioteca email se disponível, caso contrário usa parser manual.
-    Retorna uma lista de strings base64.
+    Extrai e decodifica blocos base64 de um arquivo de e-mail.
+    Usa a biblioteca email se disponível (mais eficiente e robusto), 
+    caso contrário usa parser manual.
+    
+    Retorna uma lista de conteúdos decodificados (strings).
     """
     # Se biblioteca email está disponível, tenta usar
     if EMAIL_LIBRARY_AVAILABLE:
-        content = ''.join(lines)
-        blocks = extract_base64_blocks_with_email_lib(content)
-        # Se funcionou, retorna o resultado
+        blocks = extract_base64_blocks_with_email_lib(file_path)
+        # Se funcionou, retorna o resultado (já decodificado)
         if blocks is not None:
             return blocks
     
     # Fallback para método manual
-    return extract_base64_blocks_manual(lines)
+    # Se lines não foi fornecido, lê o arquivo
+    if lines is None:
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            print(f"⚠️ Erro ao ler arquivo: {e}")
+            return []
+    
+    # Extrai blocos base64 (ainda codificados)
+    base64_blocks = extract_base64_blocks_manual(lines)
+    
+    # Decodifica cada bloco
+    decoded_blocks = []
+    for block in base64_blocks:
+        decoded = decode_base64(block)
+        if decoded:
+            decoded_blocks.append(decoded)
+    
+    return decoded_blocks
 
 
 def decode_base64(base64_string):
@@ -250,30 +271,29 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
         file_path = os.path.join(source_dir, filename)
         print(f"=== Processando: {filename} ===")
         
-        # Ler arquivo uma única vez
+        # Busca em plaintext e extração de base64
         found_in_plaintext = False
         matched_plain_pattern = None
-        base64_blocks = []
+        decoded_blocks = []
         
         try:
+            # Ler arquivo apenas para busca plaintext
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                lines = f.readlines()
-            
-            # Reconstrói conteúdo completo para busca plaintext
-            full_content = ''.join(lines)
+                full_content = f.read()
             
             # Procurar padroes no conteudo plaintext
             found_in_plaintext, matched_plain_pattern = search_patterns_in_content(full_content, search_patterns)
             if found_in_plaintext and show_matched:
                 print(f"✅ PADRAO ENCONTRADO EM PLAINTEXT: '{matched_plain_pattern}'")
             
-            # Extrai blocos base64 das mesmas linhas
-            base64_blocks = extract_base64_blocks(lines)
+            # Extrai e decodifica blocos base64
+            # A função agora lê o arquivo internamente se necessário
+            decoded_blocks = extract_base64_blocks(file_path)
             
         except Exception as e:
             print(f"⚠️ Erro ao ler arquivo: {e}")
         
-        if not base64_blocks:
+        if not decoded_blocks:
             print(f"Nenhum bloco base64 encontrado.")
             # Se não há base64 mas encontrou em plaintext, move o arquivo
             if found_in_plaintext:
@@ -291,32 +311,28 @@ def process_email_files(source_dir, dest_dir, show_patterns=False, show_preview=
             print()
             continue
         
-        print(f"Encontrado(s) {len(base64_blocks)} bloco(s) base64.")
+        print(f"Encontrado(s) {len(decoded_blocks)} bloco(s) base64.")
         
-        # Processa cada bloco
+        # Processa cada bloco (já decodificado)
         found_pattern = False
-        for idx, block in enumerate(base64_blocks, 1):
+        for idx, decoded in enumerate(decoded_blocks, 1):
             print(f"\n  --- Bloco {idx} ---")
+            print(f"Conteudo decodificado ({len(decoded)} caracteres):")
             
-            # Decodifica
-            decoded = decode_base64(block)
+            # Exibe preview (primeiros 500 caracteres) somente com flag
+            if show_preview:
+                preview = decoded[:500]
+                print(f"{preview}")
+                if len(decoded) > 500:
+                    print(f"... (truncado)")
             
-            if decoded:
-                print(f"Conteudo decodificado ({len(decoded)} caracteres):")
-                # Exibe preview (primeiros 500 caracteres) somente com flag
-                if show_preview:
-                    preview = decoded[:500]
-                    print(f"{preview}")
-                    if len(decoded) > 500:
-                        print(f"... (truncado)")
-                
-                # Procura padroes
-                match_found, matched_pattern = search_patterns_in_content(decoded, search_patterns)
-                
-                if match_found:
-                    if show_matched:
-                        print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
-                    found_pattern = True
+            # Procura padroes
+            match_found, matched_pattern = search_patterns_in_content(decoded, search_patterns)
+            
+            if match_found:
+                if show_matched:
+                    print(f"\n✅ PADRAO ENCONTRADO: '{matched_pattern}'")
+                found_pattern = True
         
         # Move arquivo se encontrou padrao (em base64 OU plaintext)
         if found_pattern or found_in_plaintext:
