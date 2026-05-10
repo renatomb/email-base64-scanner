@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Email Base64 Scanner
+--------------------
+Script para processar arquivos de e-mail, decodificar blocos Base64
+e filtrar mensagens com base em padrões definidos.
+
+Autor: Renato Monteiro Batista
+GitHub: https://github.com/renatomb/email-base64-scanner
+Versão: 1.0.0
+Data: 09/05/2026
+Licença: MIT
+"""
+
 import sys
 import os
 import base64
