@@ -185,3 +185,7 @@ Para adicionar novos padrões de busca, edite o arquivo `filtrar-emails.txt` (um
 
 Renato Monteiro Batista
 [https://github.com/renatomb/email-base64-scanner](https://github.com/renatomb/email-base64-scanner)
+
+## Licença
+
+Este projeto está licenciado sob a [MIT License](LICENSE).
